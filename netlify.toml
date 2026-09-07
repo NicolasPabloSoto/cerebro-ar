@@ -1,0 +1,43 @@
+# Configuración de Servidor y Despliegue para Netlify (CerebroAR)
+
+[build]
+  publish = "."
+
+# Configuración de Headers HTTP para WebAR, Cámara y Archivos Binarios
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Configuración específica para el archivo de targets compilados (.mind)
+[[headers]]
+  for = "/*.mind"
+  [headers.values]
+    Content-Type = "application/octet-stream"
+    Cache-Control = "public, max-age=31536000, immutable"
+    Access-Control-Allow-Origin = "*"
+
+[[headers]]
+  for = "/assets/*.mind"
+  [headers.values]
+    Content-Type = "application/octet-stream"
+    Cache-Control = "public, max-age=31536000, immutable"
+    Access-Control-Allow-Origin = "*"
+
+[[headers]]
+  for = "/src/assets/*.mind"
+  [headers.values]
+    Content-Type = "application/octet-stream"
+    Cache-Control = "public, max-age=31536000, immutable"
+    Access-Control-Allow-Origin = "*"
+
+# Redirecciones para asegurar que las rutas web resuelvan index.html si es necesario
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

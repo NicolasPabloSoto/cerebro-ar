@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CerebroAR — Seguimiento 3D de Caja</title>
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Importmap para Three.js y MindAR limpio sin npm -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Contenedor principal de la cámara AR y escena 3D -->
+  <div id="ar-container"></div>
+
+  <!-- Botón de inicio para activar la cámara en navegadores móviles -->
+  <button id="start-ar-btn">📷 INICIAR CÁMARA AR</button>
+
+  <!-- Badge indicativo del estado del Brain -->
+  <div id="brain-status-badge">CEREBRO AR | IDLE</div>
+
+  <!-- Código principal de la aplicación -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

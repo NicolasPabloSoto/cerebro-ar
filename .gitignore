@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Logs & Temp
+*.log
+scratch/
+.gemini/
+
+# Node
+node_modules/
+dist/
+build/
+.env
+.env.local
