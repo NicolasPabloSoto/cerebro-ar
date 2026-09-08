@@ -15,12 +15,13 @@ export class BoxTracker {
     this.confidence = 0;
     this.isInitialized = false;
     this.lerpFactor = 0.25;
+    this.confidenceRise = 0.20;
     this.confidenceDecay = 0.08;
   }
 
   /**
    * @param {BoxPoseResult | null} solverResult
-   * @returns {{ position: THREE.Vector3, rotation: THREE.Quaternion, matrix: THREE.Matrix4, confidence: number, isInitialized: boolean }}
+   * @returns {{ position: THREE.Vector3, rotation: THREE.Quaternion, matrix: THREE.Matrix4, confidence: number, isInitialized: boolean, hasPose: boolean }}
    */
   update(solverResult) {
     if (solverResult && solverResult.candidateCount > 0) {
@@ -35,12 +36,12 @@ export class BoxTracker {
         this.confidence = THREE.MathUtils.lerp(
           this.confidence,
           solverResult.confidence,
-          0.20
+          this.confidenceRise
         );
       }
     } else {
       this.confidence = Math.max(0, this.confidence - this.confidenceDecay);
-      if (this.confidence === 0) this.isInitialized = false;
+      if (this.confidence <= 0) this.isInitialized = false;
     }
 
     this.currentMatrix.compose(
@@ -54,7 +55,8 @@ export class BoxTracker {
       rotation: this.currentRotation,
       matrix: this.currentMatrix,
       confidence: this.confidence,
-      isInitialized: this.isInitialized
+      isInitialized: this.isInitialized,
+      hasPose: this.isInitialized
     };
   }
 
