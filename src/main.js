@@ -37,7 +37,9 @@ async function initApp() {
     mindThreeInstance = new MindARThree({
       container: arContainer,
       imageTargetSrc: './assets/targets.mind',
-      maxTrack: 2,
+      // Stage 1: una sola cara a la vez. La fusión multi-cara se habilitará
+      // después de validar la pose de una cara de forma aislada.
+      maxTrack: 1,
       uiLoading: 'no',
       uiScanning: 'no',
       uiError: 'no'
@@ -50,7 +52,7 @@ async function initApp() {
       targetFaceMap
     });
 
-    Logger.addLog('INFO', ['[MindAR] SDK inicializado. Modo REAL solamente.']);
+    Logger.addLog('INFO', ['[MindAR] SDK inicializado. PHASE 1 = single-target.']);
   } catch (err) {
     Logger.addLog('ERROR', [`[MindAR] No se pudo inicializar: ${err?.message || String(err)}`]);
     return;
@@ -72,7 +74,7 @@ async function initApp() {
 
 async function startAR() {
   if (!mindARAdapter || !renderer || !scene || !camera) {
-    Logger.addLog('ERROR', ['[CerebroAR] MindAR no está disponible. Se detiene la prueba; no se usa cámara sintética.']);
+    Logger.addLog('ERROR', ['[CerebroAR] MindAR no está disponible. Prueba detenida.']);
     return;
   }
 
@@ -83,7 +85,6 @@ async function startAR() {
     await mindARAdapter.start();
     isARStarted = true;
     Logger.addLog('INFO', ['[Cámara] MindAR activo. Esperando evidencia real de las caras.']);
-
     renderer.setAnimationLoop((timestamp) => onRenderFrame(timestamp));
   } catch (err) {
     Logger.addLog('ERROR', [
@@ -100,10 +101,8 @@ function onRenderFrame(timestamp) {
   const observations = mindARAdapter.getObservations(timestamp);
   const result = brain.processFrame(observations, timestamp);
 
-  const poseVisible = Boolean(result.hasPose);
-  wireframe.update(poseVisible, result.state);
+  wireframe.update(Boolean(result.hasPose), result.state);
   updateBadgeUI(result.state, observations.length, result);
-
   renderer.render(scene, camera);
 }
 
