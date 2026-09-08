@@ -5,20 +5,18 @@ import * as THREE from 'three';
  * Configuración geométrica rígida de la caja (CerebroAR).
  *
  * Las dimensiones físicas NO se alteran: 3.6 cm x 12.0 cm x 3.6 cm.
- * MindAR, en cambio, trabaja en unidades normalizadas donde el ancho del
- * target equivale a 1 unidad. Por eso mantenemos ambas escalas explícitas.
+ * MindAR trabaja en unidades normalizadas donde el ancho del target equivale
+ * a 1 unidad. Por eso mantenemos explícitas ambas escalas.
  */
 export const BOX_CONFIG = {
   dimensions: {
-    width: 0.036,  // 3.6 cm (Eje X)
-    height: 0.120, // 12.0 cm (Eje Y)
-    depth: 0.036   // 3.6 cm (Eje Z)
+    width: 0.036,
+    height: 0.120,
+    depth: 0.036
   },
-  // El target de cada cara tiene físicamente 3.6 cm de ancho.
   targetWidthMeters: 0.036,
-  // Conversión: 1 unidad MindAR = 3.6 cm físicos.
   sceneUnitsPerMeter: 1 / 0.036,
-  positionTolerance: 0.30,
+  positionTolerance: 0.03 / 0.036,
   angleTolerance: 0.35
 };
 
@@ -27,16 +25,7 @@ const halfW = (BOX_CONFIG.dimensions.width * sceneScale) / 2;
 const halfH = (BOX_CONFIG.dimensions.height * sceneScale) / 2;
 const halfD = (BOX_CONFIG.dimensions.depth * sceneScale) / 2;
 
-/**
- * Matriz M_box_to_face en las unidades normalizadas de MindAR.
- * El centro de cada target coincide con el centro geométrico de su cara.
- *
- * FRONT: +Z
- * BACK:  -Z
- * LEFT:  -X
- * RIGHT: +X
- * TOP:   +Y
- */
+/** Matriz M_box_to_face en unidades normalizadas de MindAR. */
 export const FACE_TRANSFORMS = {
   front: createTransformMatrix(0, 0, halfD, 0, 0, 0),
   back: createTransformMatrix(0, 0, -halfD, 0, Math.PI, 0),
@@ -45,10 +34,7 @@ export const FACE_TRANSFORMS = {
   top: createTransformMatrix(0, halfH, 0, -Math.PI / 2, 0, 0)
 };
 
-/**
- * Dimensiones de la caja en unidades de escena MindAR.
- * Esto representa exactamente las dimensiones físicas anteriores.
- */
+/** Dimensiones físicas representadas en unidades de escena MindAR. */
 export const BOX_SCENE_DIMENSIONS = {
   width: BOX_CONFIG.dimensions.width * sceneScale,
   height: BOX_CONFIG.dimensions.height * sceneScale,
