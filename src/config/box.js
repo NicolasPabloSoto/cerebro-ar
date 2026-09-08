@@ -2,8 +2,11 @@
 import * as THREE from 'three';
 
 /**
- * Configuración geométrica rígida de la caja (CerebroAR)
- * Dimensiones físicas exactas en metros (3.6 cm x 12.0 cm x 3.6 cm)
+ * Configuración geométrica rígida de la caja (CerebroAR).
+ *
+ * Las dimensiones físicas NO se alteran: 3.6 cm x 12.0 cm x 3.6 cm.
+ * MindAR, en cambio, trabaja en unidades normalizadas donde el ancho del
+ * target equivale a 1 unidad. Por eso mantenemos ambas escalas explícitas.
  */
 export const BOX_CONFIG = {
   dimensions: {
@@ -11,26 +14,28 @@ export const BOX_CONFIG = {
     height: 0.120, // 12.0 cm (Eje Y)
     depth: 0.036   // 3.6 cm (Eje Z)
   },
-  // Umbral de tolerancia traslacional para considerar candidatos compatibles (en metros)
-  positionTolerance: 0.03, // 3 cm
-  // Umbral de tolerancia angular (en radianes, ~20 grados)
+  // El target de cada cara tiene físicamente 3.6 cm de ancho.
+  targetWidthMeters: 0.036,
+  // Conversión: 1 unidad MindAR = 3.6 cm físicos.
+  sceneUnitsPerMeter: 1 / 0.036,
+  positionTolerance: 0.30,
   angleTolerance: 0.35
 };
 
-const halfW = BOX_CONFIG.dimensions.width / 2;  // 0.018 m
-const halfH = BOX_CONFIG.dimensions.height / 2; // 0.060 m
-const halfD = BOX_CONFIG.dimensions.depth / 2;  // 0.018 m
+const sceneScale = BOX_CONFIG.sceneUnitsPerMeter;
+const halfW = (BOX_CONFIG.dimensions.width * sceneScale) / 2;
+const halfH = (BOX_CONFIG.dimensions.height * sceneScale) / 2;
+const halfD = (BOX_CONFIG.dimensions.depth * sceneScale) / 2;
 
 /**
- * Matriz de transformación local de cada cara con respecto al centro geométrico (0,0,0) de la caja.
- * M_box_to_face: posición y orientación de la cara i dentro del sistema de coordenadas de la caja.
- * 
- * Convención Three.js:
- * - FRONT: superficie en +Z. Normal apuntando a +Z.
- * - BACK: superficie en -Z. Normal apuntando a -Z. Rotación 180° en Y.
- * - LEFT: superficie en -X. Normal apuntando a -X. Rotación -90° en Y.
- * - RIGHT: superficie en +X. Normal apuntando a +X. Rotación +90° en Y.
- * - TOP: superficie en +Y. Normal apuntando a +Y. Rotación -90° en X.
+ * Matriz M_box_to_face en las unidades normalizadas de MindAR.
+ * El centro de cada target coincide con el centro geométrico de su cara.
+ *
+ * FRONT: +Z
+ * BACK:  -Z
+ * LEFT:  -X
+ * RIGHT: +X
+ * TOP:   +Y
  */
 export const FACE_TRANSFORMS = {
   front: createTransformMatrix(0, 0, halfD, 0, 0, 0),
@@ -41,26 +46,38 @@ export const FACE_TRANSFORMS = {
 };
 
 /**
- * Crea una Matrix4 de Three.js a partir de posición (x,y,z) y ángulos Euler (rotX, rotY, rotZ)
- * @param {number} x 
- * @param {number} y 
- * @param {number} z 
- * @param {number} rx 
- * @param {number} ry 
- * @param {number} rz 
- * @returns {{ position: THREE.Vector3, quaternion: THREE.Quaternion, matrix: THREE.Matrix4, inverseMatrix: THREE.Matrix4 }}
+ * Dimensiones de la caja en unidades de escena MindAR.
+ * Esto representa exactamente las dimensiones físicas anteriores.
+ */
+export const BOX_SCENE_DIMENSIONS = {
+  width: BOX_CONFIG.dimensions.width * sceneScale,
+  height: BOX_CONFIG.dimensions.height * sceneScale,
+  depth: BOX_CONFIG.dimensions.depth * sceneScale
+};
+
+/**
+ * @param {number} x
+ * @param {number} y
+ * @param {number} z
+ * @param {number} rx
+ * @param {number} ry
+ * @param {number} rz
  */
 function createTransformMatrix(x, y, z, rx, ry, rz) {
   const position = new THREE.Vector3(x, y, z);
-  const euler = new THREE.Euler(rx, ry, rz, 'XYZ');
-  const quaternion = new THREE.Quaternion().setFromEuler(euler);
-  const matrix = new THREE.Matrix4().compose(position, quaternion, new THREE.Vector3(1, 1, 1));
-  const inverseMatrix = matrix.clone().invert();
+  const quaternion = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(rx, ry, rz, 'XYZ')
+  );
+  const matrix = new THREE.Matrix4().compose(
+    position,
+    quaternion,
+    new THREE.Vector3(1, 1, 1)
+  );
 
   return {
     position,
     quaternion,
     matrix,
-    inverseMatrix
+    inverseMatrix: matrix.clone().invert()
   };
 }
