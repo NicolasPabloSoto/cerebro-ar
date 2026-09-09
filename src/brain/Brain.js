@@ -59,16 +59,13 @@ export class Brain {
           `[DIAG][CerebroPose] raw=(${raw?.x.toFixed(3) ?? '---'}, ${raw?.y.toFixed(3) ?? '---'}, ${raw?.z.toFixed(3) ?? '---'}) | filtered=(${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)}) | rawΔ ${(rawDelta * 3.6).toFixed(1)}cm | filteredΔ ${(trackedDelta * 3.6).toFixed(1)}cm | raw→filtered ${(rawToTracked * 3.6).toFixed(1)}cm | faces ${solverResult?.candidateCount ?? 0}`
         ]);
 
-        if (raw) this.lastRawPosition = raw.clone();
-        this.lastTrackedPosition = p.clone();
-        this.lastPoseLogAt = timestamp;
-      }
-
-      if (timestamp - this.lastPoseLogAt >= 0) {
-        const p = trackedPose.position;
         Logger.addLog('INFO', [
           `[BOX_ANCHOR] pose scene = (${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)}) | conf ${(trackedPose.confidence * 100).toFixed(0)}%`
         ]);
+
+        if (raw) this.lastRawPosition = raw.clone();
+        this.lastTrackedPosition = p.clone();
+        this.lastPoseLogAt = timestamp;
       }
     }
 
