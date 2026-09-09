@@ -4,39 +4,8 @@
   padding: 0;
 }
 
-#ar-container {
-  width: 100vw;
-  height: 100vh;
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1;
-  overflow: hidden;
-}
-
-/* Video de cámara (atrás) */
-#ar-container video, video.ar-camera-fallback {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw !important;
-  height: 100vh !important;
-  object-fit: cover !important;
-  z-index: 0 !important;
-}
-
-/* Canvas Three.js (adelante) */
-#ar-container canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw !important;
-  height: 100vh !important;
-  z-index: 2 !important;
-  pointer-events: none;
-}
-
-html, body {
+html,
+body {
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -44,6 +13,38 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/*
+ * MindAR es responsable del tamaño y del aspect ratio de sus capas internas
+ * (video + canvas). No forzamos 100vw/100vh aquí porque en iOS Safari puede
+ * aparecer una diferencia entre el viewport CSS y el viewport real de cámara.
+ */
+#ar-container {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* Capas creadas por MindAR: posición solamente, sin pelear con sus dimensiones. */
+#ar-container video,
+#ar-container canvas,
+video.ar-camera-fallback {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+#ar-container video {
+  z-index: 0;
+}
+
+#ar-container canvas {
+  z-index: 2;
 }
 
 /* Botón de inicio de Cámara AR */
