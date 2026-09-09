@@ -7,9 +7,13 @@ import { Logger } from '../utils/Logger.js';
 /**
  * Adaptador de visión de CerebroAR.
  *
- * MindAR es únicamente el proveedor de evidencia visual. Este adaptador
- * convierte la pose del anchor de cada imagen objetivo al contrato común
- * Observation[] en ESPACIO DE ESCENA.
+ * MindAR actualiza anchor.group con una matriz en las unidades nativas del
+ * tracker. Esas unidades están ligadas al ancho de la imagen objetivo, que
+ * puede corresponder a cientos o miles de píxeles en el .mind. Cerebro, en
+ * cambio, trabaja con una escena normalizada donde el ancho de la cara = 1.
+ *
+ * El adaptador es responsable de hacer esa conversión. El resto del sistema
+ * nunca debe conocer las unidades nativas de MindAR.
  */
 export class MindARAdapter {
   /**
@@ -20,7 +24,7 @@ export class MindARAdapter {
   constructor({ mindThree, targetFaceMap }) {
     this.mindThree = mindThree;
     this.targetFaceMap = targetFaceMap;
-    /** @type {Map<string, { anchor: any, faceId: 'front' | 'left' | 'right' | 'back' | 'top', isVisible: boolean, foundAt: number, lastSeenAt: number }>} */
+    /** @type {Map<string, { anchor: any, faceId: 'front' | 'left' | 'right' | 'back' | 'top', isVisible: boolean, foundAt: number, lastSeenAt: number, markerWidth: number }>} */
     this.trackedTargets = new Map();
     this.setupAnchors();
   }
@@ -36,7 +40,8 @@ export class MindARAdapter {
         faceId,
         isVisible: false,
         foundAt: 0,
-        lastSeenAt: 0
+        lastSeenAt: 0,
+        markerWidth: 0
       };
 
       this.trackedTargets.set(faceId, targetData);
@@ -45,7 +50,10 @@ export class MindARAdapter {
         targetData.isVisible = true;
         targetData.foundAt = performance.now();
         targetData.lastSeenAt = targetData.foundAt;
-        Logger.addLog('INFO', [`[Vision] Cara detectada: ${faceId.toUpperCase()} (Target ${index})`]);
+        targetData.markerWidth = this.getMarkerWidth(anchor.targetIndex);
+        Logger.addLog('INFO', [
+          `[Vision] Cara detectada: ${faceId.toUpperCase()} (Target ${index}) | targetWidth ${targetData.markerWidth.toFixed(1)}u`
+        ]);
       };
 
       anchor.onTargetLost = () => {
@@ -63,6 +71,32 @@ export class MindARAdapter {
   }
 
   /**
+   * MindAR conserva la pose en unidades nativas cuyo tamaño corresponde al
+   * ancho del target. Convertimos la posición a unidades normalizadas:
+   * targetWidth -> 1. La rotación no requiere conversión.
+   *
+   * @param {THREE.Vector3} nativePosition
+   * @param {number} markerWidth
+   */
+  normalizePosition(nativePosition, markerWidth) {
+    if (!Number.isFinite(markerWidth) || markerWidth <= 0) {
+      throw new Error(`markerWidth inválido: ${markerWidth}`);
+    }
+
+    return nativePosition.clone().multiplyScalar(1 / markerWidth);
+  }
+
+  /**
+   * @param {number} targetIndex
+   * @returns {number}
+   */
+  getMarkerWidth(targetIndex) {
+    const dimensions = this.mindThree?.controller?.markerDimensions?.[targetIndex];
+    const markerWidth = dimensions?.[0];
+    return Number.isFinite(markerWidth) && markerWidth > 0 ? markerWidth : 0;
+  }
+
+  /**
    * @param {number} timestamp
    * @returns {Observation[]}
    */
@@ -77,14 +111,31 @@ export class MindARAdapter {
       const group = target.anchor.group;
       group.updateMatrixWorld(true);
 
-      const position = new THREE.Vector3();
+      const nativePosition = new THREE.Vector3();
       const rotation = new THREE.Quaternion();
       const scale = new THREE.Vector3();
-      group.matrixWorld.decompose(position, rotation, scale);
+      group.matrix.decompose(nativePosition, rotation, scale);
+
+      const markerWidth = target.markerWidth || this.getMarkerWidth(target.anchor.targetIndex);
+      if (!markerWidth) {
+        Logger.addLog('ERROR', [
+          `[MindARAdapter] No se pudo obtener targetWidth para ${target.faceId.toUpperCase()}. Observation descartada.`
+        ]);
+        continue;
+      }
+
+      const position = this.normalizePosition(nativePosition, markerWidth);
       target.lastSeenAt = now;
 
-      // MindAR no expone aquí una probabilidad física de detección. Por tanto
-      // Observation no inventa confidence: la evidencia actual es presencia.
+      // Diagnóstico de una sola muestra por detección: permite comprobar la
+      // conversión sin inundar el log frame a frame.
+      if (target.foundAt === now || Math.abs(now - target.foundAt) < 80) {
+        Logger.addLog('INFO', [
+          `[MindARAdapter] ${target.faceId.toUpperCase()} native=(${nativePosition.x.toFixed(1)}, ${nativePosition.y.toFixed(1)}, ${nativePosition.z.toFixed(1)}) -> normalized=(${position.x.toFixed(3)}, ${position.y.toFixed(3)}, ${position.z.toFixed(3)}) | width ${markerWidth.toFixed(1)}u`
+        ]);
+        target.foundAt = -1;
+      }
+
       observations.push({
         faceId: target.faceId,
         position,
