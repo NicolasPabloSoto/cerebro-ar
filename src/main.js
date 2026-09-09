@@ -29,7 +29,110 @@ let wireframe = null;
 let brain = null;
 let isARStarted = false;
 
+let lastViewportSignature = '';
+let lastVideoSignature = '';
+let lastCanvasSignature = '';
+let resizeEventCount = 0;
+
+function getElementRect(element) {
+  if (!element) return null;
+  const rect = element.getBoundingClientRect();
+  return {
+    x: Number(rect.x.toFixed(1)),
+    y: Number(rect.y.toFixed(1)),
+    width: Number(rect.width.toFixed(1)),
+    height: Number(rect.height.toFixed(1))
+  };
+}
+
+function getViewportDiagnostics() {
+  const video = mindThreeInstance?.video;
+  const canvas = renderer?.domElement;
+  const visualViewportData = window.visualViewport
+    ? {
+        width: Number(window.visualViewport.width.toFixed(1)),
+        height: Number(window.visualViewport.height.toFixed(1)),
+        offsetLeft: Number(window.visualViewport.offsetLeft.toFixed(1)),
+        offsetTop: Number(window.visualViewport.offsetTop.toFixed(1)),
+        scale: Number(window.visualViewport.scale.toFixed(3))
+      }
+    : null;
+
+  return {
+    window: `${window.innerWidth}x${window.innerHeight}`,
+    visualViewport: visualViewportData,
+    container: getElementRect(arContainer),
+    video: video
+      ? {
+          attr: `${video.width}x${video.height}`,
+          css: `${video.style.width || 'auto'}x${video.style.height || 'auto'}`,
+          rect: getElementRect(video)
+        }
+      : null,
+    canvas: canvas
+      ? {
+          css: `${canvas.style.width || 'auto'}x${canvas.style.height || 'auto'}`,
+          rect: getElementRect(canvas)
+        }
+      : null
+  };
+}
+
+function logViewportDiagnostics(reason) {
+  const d = getViewportDiagnostics();
+  const viewportSignature = JSON.stringify({
+    window: d.window,
+    visualViewport: d.visualViewport,
+    container: d.container
+  });
+  const videoSignature = JSON.stringify(d.video);
+  const canvasSignature = JSON.stringify(d.canvas);
+
+  if (viewportSignature !== lastViewportSignature) {
+    lastViewportSignature = viewportSignature;
+    Logger.addLog('INFO', [
+      `[DIAG][Viewport] ${reason} | window=${d.window} | visualViewport=${JSON.stringify(d.visualViewport)} | container=${JSON.stringify(d.container)}`
+    ]);
+  }
+
+  if (videoSignature !== lastVideoSignature) {
+    lastVideoSignature = videoSignature;
+    Logger.addLog('INFO', [
+      `[DIAG][Video] ${reason} | ${JSON.stringify(d.video)}`
+    ]);
+  }
+
+  if (canvasSignature !== lastCanvasSignature) {
+    lastCanvasSignature = canvasSignature;
+    Logger.addLog('INFO', [
+      `[DIAG][Canvas] ${reason} | ${JSON.stringify(d.canvas)}`
+    ]);
+  }
+}
+
+function installViewportDiagnostics() {
+  window.addEventListener('resize', () => {
+    resizeEventCount += 1;
+    Logger.addLog('WARN', [`[DIAG][Resize] window resize #${resizeEventCount}`]);
+    requestAnimationFrame(() => logViewportDiagnostics('after window.resize'));
+  });
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      Logger.addLog('WARN', ['[DIAG][VisualViewport] resize']);
+      requestAnimationFrame(() => logViewportDiagnostics('after visualViewport.resize'));
+    });
+
+    window.visualViewport.addEventListener('scroll', () => {
+      Logger.addLog('WARN', ['[DIAG][VisualViewport] scroll/offset change']);
+      requestAnimationFrame(() => logViewportDiagnostics('after visualViewport.scroll'));
+    });
+  }
+}
+
 async function initApp() {
+  installViewportDiagnostics();
+
   try {
     // @ts-ignore
     const { MindARThree } = await import('mindar-image-three');
@@ -53,6 +156,7 @@ async function initApp() {
     });
 
     Logger.addLog('INFO', ['[MindAR] SDK inicializado. PHASE 1 = single-target.']);
+    logViewportDiagnostics('after MindAR init');
   } catch (err) {
     Logger.addLog('ERROR', [`[MindAR] No se pudo inicializar: ${err?.message || String(err)}`]);
     return;
@@ -85,6 +189,7 @@ async function startAR() {
     await mindARAdapter.start();
     isARStarted = true;
     Logger.addLog('INFO', ['[Cámara] MindAR activo. Esperando evidencia real de las caras.']);
+    logViewportDiagnostics('after MindAR start');
     renderer.setAnimationLoop((timestamp) => onRenderFrame(timestamp));
   } catch (err) {
     Logger.addLog('ERROR', [
