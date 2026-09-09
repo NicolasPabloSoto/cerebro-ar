@@ -16,6 +16,7 @@ export class Brain {
     this.state = 'IDLE';
     this.calibrationThreshold = 0.75;
     this.isMathVerified = this.solver.verifyMathConventions();
+    this.lastPoseLogAt = 0;
   }
 
   /**
@@ -38,6 +39,16 @@ export class Brain {
       this.boxAnchor.scale.set(1, 1, 1);
       this.boxAnchor.updateMatrix();
       this.boxAnchor.updateMatrixWorld(true);
+
+      // Diagnóstico limitado: evita inundar el log y permite comprobar que
+      // la pose calculada realmente llega al BOX_ANCHOR que dibuja la UI.
+      if (timestamp - this.lastPoseLogAt >= 500) {
+        const p = trackedPose.position;
+        Logger.addLog('INFO', [
+          `[BOX_ANCHOR] pose scene = (${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)}) | conf ${(trackedPose.confidence * 100).toFixed(0)}%`
+        ]);
+        this.lastPoseLogAt = timestamp;
+      }
     }
 
     Logger.updateHUD({
