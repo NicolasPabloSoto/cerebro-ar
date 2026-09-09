@@ -17,6 +17,8 @@ export class Brain {
     this.calibrationThreshold = 0.75;
     this.isMathVerified = this.solver.verifyMathConventions();
     this.lastPoseLogAt = 0;
+    this.lastRawPosition = null;
+    this.lastTrackedPosition = null;
   }
 
   /**
@@ -40,14 +42,33 @@ export class Brain {
       this.boxAnchor.updateMatrix();
       this.boxAnchor.updateMatrixWorld(true);
 
-      // Diagnóstico limitado: evita inundar el log y permite comprobar que
-      // la pose calculada realmente llega al BOX_ANCHOR que dibuja la UI.
+      // Diagnóstico quirúrgico: comparamos la pose cruda entregada por el Solver
+      // con la pose que Cerebro realmente aplica al BOX_ANCHOR.
       if (timestamp - this.lastPoseLogAt >= 500) {
+        const p = trackedPose.position;
+        const raw = solverResult?.position;
+        const rawDelta = raw && this.lastRawPosition
+          ? raw.distanceTo(this.lastRawPosition)
+          : 0;
+        const trackedDelta = this.lastTrackedPosition
+          ? p.distanceTo(this.lastTrackedPosition)
+          : 0;
+        const rawToTracked = raw ? raw.distanceTo(p) : 0;
+
+        Logger.addLog('INFO', [
+          `[DIAG][CerebroPose] raw=(${raw?.x.toFixed(3) ?? '---'}, ${raw?.y.toFixed(3) ?? '---'}, ${raw?.z.toFixed(3) ?? '---'}) | filtered=(${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)}) | rawΔ ${(rawDelta * 3.6).toFixed(1)}cm | filteredΔ ${(trackedDelta * 3.6).toFixed(1)}cm | raw→filtered ${(rawToTracked * 3.6).toFixed(1)}cm | faces ${solverResult?.candidateCount ?? 0}`
+        ]);
+
+        if (raw) this.lastRawPosition = raw.clone();
+        this.lastTrackedPosition = p.clone();
+        this.lastPoseLogAt = timestamp;
+      }
+
+      if (timestamp - this.lastPoseLogAt >= 0) {
         const p = trackedPose.position;
         Logger.addLog('INFO', [
           `[BOX_ANCHOR] pose scene = (${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)}) | conf ${(trackedPose.confidence * 100).toFixed(0)}%`
         ]);
-        this.lastPoseLogAt = timestamp;
       }
     }
 
