@@ -123,12 +123,4 @@ function updateBadgeUI(state, observationCount = 0, result = null) {
   }
 }
 
-window.addEventListener('resize', () => {
-  if (camera && renderer) {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  }
-});
-
 initApp();
