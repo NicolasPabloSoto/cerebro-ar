@@ -34,6 +34,47 @@ let lastVideoSignature = '';
 let lastCanvasSignature = '';
 let resizeEventCount = 0;
 
+/**
+ * Netlify inyecta su Powered by Netlify dentro de un frame aislado después de
+ * cargar nuestra página. El CSS de la app no puede entrar en ese frame, por lo
+ * que ocultamos únicamente el elemento externo que Netlify añade al documento.
+ * Esto no toca video, canvas, MindAR ni el layout de #ar-container.
+ */
+function hideNetlifyBadge() {
+  const selectors = [
+    '.nl-badge',
+    'iframe.nl-badge',
+    '[data-netlify-badge]'
+  ];
+
+  let hiddenCount = 0;
+
+  for (const selector of selectors) {
+    document.querySelectorAll(selector).forEach((element) => {
+      const htmlElement = /** @type {HTMLElement} */ (element);
+      if (htmlElement.style.display !== 'none') {
+        htmlElement.style.setProperty('display', 'none', 'important');
+        hiddenCount += 1;
+      }
+    });
+  }
+
+  return hiddenCount;
+}
+
+function installNetlifyBadgeGuard() {
+  hideNetlifyBadge();
+
+  const observer = new MutationObserver(() => {
+    hideNetlifyBadge();
+  });
+
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+}
+
 function getElementRect(element) {
   if (!element) return null;
   const rect = element.getBoundingClientRect();
@@ -131,6 +172,7 @@ function installViewportDiagnostics() {
 }
 
 async function initApp() {
+  installNetlifyBadgeGuard();
   installViewportDiagnostics();
 
   try {
