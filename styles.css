@@ -89,3 +89,11 @@ video.ar-camera-fallback {
   backdrop-filter: blur(4px);
   pointer-events: none;
 }
+
+/*
+ * Netlify inyecta este badge fuera de nuestro HTML. Lo ocultamos para que
+ * no tape los controles de la consola de diagnóstico durante las pruebas.
+ */
+.nl-badge {
+  display: none !important;
+}
