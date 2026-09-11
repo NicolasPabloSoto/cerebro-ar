@@ -63,10 +63,6 @@ function manageNetlifyBadge() {
     });
   }
 
-  // Fallback deliberado: Netlify renderiza el badge en un frame aislado.
-  // No podemos inspeccionar su contenido, pero sí podemos controlar el frame
-  // que vive en nuestro documento. Solo tocamos frames que parezcan un badge
-  // flotante en la esquina inferior derecha.
   document.querySelectorAll('iframe').forEach((element) => {
     const iframe = /** @type {HTMLIFrameElement} */ (element);
 
@@ -109,8 +105,6 @@ function installNetlifyBadgeGuard() {
     subtree: true
   });
 
-  // Netlify puede terminar de posicionar el frame después de insertarlo.
-  // Repetimos unas pocas comprobaciones sin dejar un loop permanente.
   let checks = 0;
   const checkTimer = window.setInterval(() => {
     manageNetlifyBadge();
@@ -226,8 +220,6 @@ async function initApp() {
     mindThreeInstance = new MindARThree({
       container: arContainer,
       imageTargetSrc: './assets/targets.mind',
-      // Stage 1: una sola cara a la vez. La fusión multi-cara se habilitará
-      // después de validar la pose de una cara de forma aislada.
       maxTrack: 1,
       uiLoading: 'no',
       uiScanning: 'no',
@@ -299,8 +291,8 @@ function onRenderFrame(timestamp) {
 
 function updateBadgeUI(state, observationCount = 0, result = null) {
   if (!statusBadge) return;
-  const confidence = result?.confidence ?? 0;
-  statusBadge.innerText = `CEREBRO AR | ${state} | CARAS ${observationCount} | CONF ${(confidence * 100).toFixed(0)}%`;
+  const poseQuality = result?.poseQuality ?? 0;
+  statusBadge.innerText = `CEREBRO AR | ${state} | CARAS ${observationCount} | QUALITY ${(poseQuality * 100).toFixed(0)}%`;
 
   if (state === 'CALIBRATED' || state === 'TRACKING') {
     statusBadge.style.borderColor = '#00ff66';
