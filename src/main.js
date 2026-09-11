@@ -36,43 +36,87 @@ let resizeEventCount = 0;
 
 /**
  * Netlify inyecta su Powered by Netlify dentro de un frame aislado después de
- * cargar nuestra página. El CSS de la app no puede entrar en ese frame, por lo
- * que ocultamos únicamente el elemento externo que Netlify añade al documento.
- * Esto no toca video, canvas, MindAR ni el layout de #ar-container.
+ * cargar nuestra página. El CSS de la app no puede entrar en ese frame.
+ *
+ * Primera defensa: ocultamos selectores conocidos.
+ * Segunda defensa: si Netlify cambia el wrapper/clase, detectamos un iframe
+ * fijo pegado a la esquina inferior derecha y lo sacamos de esa zona mediante
+ * transform + pointer-events:none. Así no puede tapar los controles de nuestra
+ * consola diagnóstica ni interferir con la prueba de viewport.
  */
-function hideNetlifyBadge() {
-  const selectors = [
+function manageNetlifyBadge() {
+  const knownSelectors = [
     '.nl-badge',
     'iframe.nl-badge',
     '[data-netlify-badge]'
   ];
 
   let hiddenCount = 0;
+  let movedCount = 0;
 
-  for (const selector of selectors) {
+  for (const selector of knownSelectors) {
     document.querySelectorAll(selector).forEach((element) => {
       const htmlElement = /** @type {HTMLElement} */ (element);
-      if (htmlElement.style.display !== 'none') {
-        htmlElement.style.setProperty('display', 'none', 'important');
-        hiddenCount += 1;
-      }
+      htmlElement.style.setProperty('display', 'none', 'important');
+      htmlElement.style.setProperty('pointer-events', 'none', 'important');
+      hiddenCount += 1;
     });
   }
 
-  return hiddenCount;
+  // Fallback deliberado: Netlify renderiza el badge en un frame aislado.
+  // No podemos inspeccionar su contenido, pero sí podemos controlar el frame
+  // que vive en nuestro documento. Solo tocamos frames que parezcan un badge
+  // flotante en la esquina inferior derecha.
+  document.querySelectorAll('iframe').forEach((element) => {
+    const iframe = /** @type {HTMLIFrameElement} */ (element);
+
+    if (knownSelectors.some((selector) => iframe.matches(selector))) return;
+
+    const rect = iframe.getBoundingClientRect();
+    const style = window.getComputedStyle(iframe);
+    const nearBottomRight =
+      rect.width > 0 &&
+      rect.height > 0 &&
+      rect.right >= window.innerWidth - 8 &&
+      rect.bottom >= window.innerHeight - 8;
+    const floating = style.position === 'fixed' || style.position === 'sticky';
+    const smallOverlay = rect.width <= 260 && rect.height <= 160;
+
+    if (nearBottomRight && floating && smallOverlay) {
+      iframe.style.setProperty('transform', 'translate(-190px, -24px)', 'important');
+      iframe.style.setProperty('pointer-events', 'none', 'important');
+      iframe.dataset.cerebroNetlifyMoved = 'true';
+      movedCount += 1;
+    }
+  });
+
+  if (hiddenCount || movedCount) {
+    Logger.addLog('INFO', [
+      `[Netlify] badge protegido: ocultos=${hiddenCount}, desplazados=${movedCount}`
+    ]);
+  }
 }
 
 function installNetlifyBadgeGuard() {
-  hideNetlifyBadge();
+  manageNetlifyBadge();
 
   const observer = new MutationObserver(() => {
-    hideNetlifyBadge();
+    manageNetlifyBadge();
   });
 
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true
   });
+
+  // Netlify puede terminar de posicionar el frame después de insertarlo.
+  // Repetimos unas pocas comprobaciones sin dejar un loop permanente.
+  let checks = 0;
+  const checkTimer = window.setInterval(() => {
+    manageNetlifyBadge();
+    checks += 1;
+    if (checks >= 20) window.clearInterval(checkTimer);
+  }, 250);
 }
 
 function getElementRect(element) {
