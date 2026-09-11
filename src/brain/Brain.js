@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { BoxSolver } from './BoxSolver.js';
 import { BoxTracker } from './BoxTracker.js';
+import { PoseQualityMonitor } from './PoseQualityMonitor.js';
 import { Logger } from '../utils/Logger.js';
 
 /** @typedef {'IDLE' | 'DETECTING' | 'ACQUIRING' | 'CALIBRATED' | 'TRACKING'} BrainState */
@@ -12,6 +13,7 @@ export class Brain {
     this.boxAnchor = boxAnchorGroup;
     this.solver = new BoxSolver();
     this.tracker = new BoxTracker();
+    this.poseQualityMonitor = new PoseQualityMonitor();
     /** @type {BrainState} */
     this.state = 'IDLE';
     this.calibrationThreshold = 0.75;
@@ -22,12 +24,18 @@ export class Brain {
   }
 
   /**
-   * Procesa un frame completo: observaciones -> pose de caja -> filtro -> BOX_ANCHOR.
+   * Procesa un frame completo: observaciones -> pose de caja -> filtro -> calidad -> BOX_ANCHOR.
+   *
+   * En esta primera implementación poseQuality es observacional: todavía no
+   * bloquea ni corrige el anchor. Primero medimos su comportamiento real en
+   iPhone antes de darle autoridad para intervenir en el tracking.
+   *
    * @param {import('./BoxSolver.js').Observation[]} observations
    * @param {number} timestamp
    */
   processFrame(observations, timestamp) {
     const solverResult = this.solver.solve(observations);
+    const poseQuality = this.poseQualityMonitor.update(solverResult, timestamp);
     const trackedPose = this.tracker.update(solverResult);
 
     this.updateStateMachine(observations, trackedPose);
@@ -60,7 +68,11 @@ export class Brain {
         ]);
 
         Logger.addLog('INFO', [
-          `[BOX_ANCHOR] pose scene = (${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)}) | conf ${(trackedPose.confidence * 100).toFixed(0)}%`
+          `[DIAG][PoseQuality] quality ${(poseQuality.quality * 100).toFixed(0)}% | continuity ${(poseQuality.continuity * 100).toFixed(0)}% | residual ${(poseQuality.residual * 3.6).toFixed(1)}cm | evidence ${(poseQuality.evidence * 100).toFixed(0)}% | warm ${poseQuality.warm ? 'yes' : 'no'}`
+        ]);
+
+        Logger.addLog('INFO', [
+          `[BOX_ANCHOR] pose scene = (${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)}) | evidence ${(trackedPose.confidence * 100).toFixed(0)}% | poseQuality ${(poseQuality.quality * 100).toFixed(0)}%`
         ]);
 
         if (raw) this.lastRawPosition = raw.clone();
@@ -71,7 +83,7 @@ export class Brain {
 
     Logger.updateHUD({
       faces: observations.length,
-      confidence: trackedPose.confidence,
+      confidence: poseQuality.quality,
       state: this.state
     });
 
@@ -80,6 +92,8 @@ export class Brain {
       pose: trackedPose,
       solverResult,
       confidence: trackedPose.confidence,
+      poseQuality: poseQuality.quality,
+      poseQualityDetails: poseQuality,
       hasPose
     };
   }
